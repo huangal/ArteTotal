@@ -1,0 +1,110 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/cormorant-garamond/wght.css';
+@import '@fontsource-variable/cormorant-garamond/wght-italic.css';
+@import '@fontsource-variable/geist/wght.css';
+
+/*
+  Tokens. Light is an eggshell gallery wall with black ink; dark is a
+  low-lit room. The page follows the OS unless the visitor picks a theme
+  (stored as data-theme on <html>).
+*/
+:root {
+  --paper: #fbfbfa;
+  --wall: #f1f1ee;
+  --ink: #000000;
+  --ink-2: #3a3a37;
+  --ink-3: #62625d;
+  --line: rgb(0 0 0 / 0.1);
+  --accent: #2438c4;
+  --danger: #b02a1c;
+  --scrim: rgb(251 251 250 / 0.82);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #0e0e0d;
+    --wall: #181817;
+    --ink: #f3f2ee;
+    --ink-2: #c8c7c1;
+    --ink-3: #9a9992;
+    --line: rgb(255 255 255 / 0.12);
+    --accent: #95a2ff;
+    --danger: #ff9c8f;
+    --scrim: rgb(14 14 13 / 0.8);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --paper: #0e0e0d;
+  --wall: #181817;
+  --ink: #f3f2ee;
+  --ink-2: #c8c7c1;
+  --ink-3: #9a9992;
+  --line: rgb(255 255 255 / 0.12);
+  --accent: #95a2ff;
+  --danger: #ff9c8f;
+  --scrim: rgb(14 14 13 / 0.8);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-wall: var(--wall);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-scrim: var(--scrim);
+
+  --font-serif: 'Cormorant Garamond Variable', 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Geist Variable', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  --ease-gallery: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    background: var(--paper);
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.4s var(--ease-gallery), color 0.4s var(--ease-gallery);
+  }
+
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  :focus-visible {
+    outline: 1.5px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
