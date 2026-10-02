@@ -1,38 +1,54 @@
-# ArteTotal
+# ArteTotal deploy package
 
-Portfolio and shop for the oil paintings of Carlos Huangal: a gallery with a
-full-screen viewer, a shop with a demo checkout, and an Artist Studio for adding
-and editing paintings.
+This branch is the built site, ready to run on a host with Node.js 18.17 or newer,
+including cPanel's **Setup Node.js App** (Node 18.20.4). It is generated from `main`
+by `npm run release`, so don't edit files here: change `main` and release again.
 
-Built with React, TypeScript, Vite, Tailwind CSS v4 and Motion. A small API
-(`server/`, Hono on Node's built-in SQLite) stores the collection, uploads and orders.
-
-## Getting started
-
-Requires Node 24 or newer.
-
-```bash
-npm install
-npm run dev
-```
-
-This starts the API on port 3001 and the site on http://localhost:5173.
-The database is created and seeded on first run in `server/data/` (not committed);
-delete that folder to reset to the original collection.
-
-## Scripts
-
-| Command | What it does |
+| Path | What it is |
 | --- | --- |
-| `npm run dev` | API + Vite dev server |
-| `npm run build` | Type-check and build the site into `dist/` |
-| `npm start` | Run the API, which also serves `dist/` once built |
-| `npm test` | API tests |
-| `npm run lint` | Lint with oxlint |
+| `app.cjs` | Startup file. Loads the server (Passenger needs a CommonJS entry on Node 18). |
+| `server/` | The API, compiled to JavaScript. It also serves the site. |
+| `dist/` | The built website, including the painting images. |
+| `package.json` | Runtime dependencies only: `hono`, `@hono/node-server`, `better-sqlite3`. |
 
-## Notes
+## First deploy on cPanel
 
-- Checkout records the order and marks paintings sold, but takes no payment.
-- The API has no authentication yet: anyone who can reach it can change the
-  collection. Add authentication before deploying it publicly.
-- Painting images live in `public/art/`; API details are in `server/README.md`.
+1. **Create a folder for the data, outside the app**, for example `/home/USER/artetotal-data`
+   (File Manager, or `mkdir ~/artetotal-data` in Terminal). The database, uploaded paintings
+   and orders are stored there, so they survive redeploys.
+2. **Put these files in the application folder**, for example `/home/USER/artetotal`. Either:
+   - **Git (recommended):** cPanel, then *Git Version Control*, then *Create*. Clone
+     `git@github.com:huangal/ArteTotal.git`, branch `release`, into that folder. A private
+     repository needs a deploy key: in cPanel *SSH Access*, generate a key, then add its
+     public key on GitHub under *Settings*, *Deploy keys* (read-only).
+   - **Upload:** download the `release` branch as a ZIP from GitHub, upload it in
+     File Manager, and extract it into that folder.
+3. **Create the app:** cPanel, then *Setup Node.js App*, then *Create Application*:
+   - Node.js version: **18.20.4**
+   - Application mode: **Production**
+   - Application root: the folder from step 2, e.g. `artetotal`
+   - Application URL: your domain or a subdomain. Use the root of it (not a sub-path like `/shop`).
+   - Application startup file: **`app.cjs`**
+   - Environment variable: **`DATA_DIR`** = the folder from step 1, e.g. `/home/USER/artetotal-data`
+4. Click **Run NPM Install**. This installs the three dependencies. `better-sqlite3` downloads
+   a ready-made build for Node 18; if the host blocks that download, it compiles itself
+   instead, which needs the host's build tools (ask the host if it fails).
+5. Click **Restart**, then open the site. The first start creates the database and loads the
+   original 20 paintings.
+
+## Updating
+
+1. On your computer, on `main`: `npm run release -- --push` (builds and pushes this branch).
+2. On cPanel: *Git Version Control*, then *Manage*, then *Pull or Deploy*, then *Update from Remote*
+   (or upload the new ZIP and extract it over the old files).
+3. If `package.json` changed, click **Run NPM Install** again. Then click **Restart**.
+
+Your paintings, uploads and orders stay in `DATA_DIR` and aren't touched by an update.
+
+## Before going live
+
+- The API has no authentication: anyone who finds it can add, edit or delete paintings.
+  Add a login for the Studio first.
+- Checkout records orders but takes no payment.
+- Node 18 no longer receives security updates. Move to a newer Node version when the host offers one;
+  the same code runs on Node 22.5 and newer without `better-sqlite3`.
