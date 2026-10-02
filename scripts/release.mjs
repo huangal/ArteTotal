@@ -52,6 +52,7 @@ await build({
 // Assemble the package.
 rmSync(out, { recursive: true, force: true })
 mkdirSync(join(out, 'server', 'vendor'), { recursive: true })
+mkdirSync(join(out, 'server', 'data'), { recursive: true })
 cpSync(join(root, 'dist'), join(out, 'dist'), { recursive: true })
 cpSync(join(root, 'build', 'bundle', 'index.js'), join(out, 'server', 'index.js'))
 // sql-wasm.js is CommonJS; .cjs keeps Node from reading it as ESM under "type": "module".
@@ -61,7 +62,10 @@ cpSync(join(sqlJsDist, 'sql-wasm.wasm'), join(out, 'server', 'vendor', 'sql-wasm
 cpSync(join(sqlJsDist, '..', 'LICENSE'), join(out, 'server', 'vendor', 'sql.js-LICENSE'))
 cpSync(join(root, 'deploy', 'README.md'), join(out, 'README.md'))
 cpSync(join(root, 'deploy', 'web.config'), join(out, 'web.config'))
-writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data\niisnode\n')
+// An empty data folder (held by its README), so its write permission can be set before the first
+// start. The database and uploads the site creates there are never part of a release.
+cpSync(join(root, 'deploy', 'data-README.md'), join(out, 'server', 'data', 'README.md'))
+writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data/*\n!server/data/README.md\niisnode\n')
 cpSync(join(root, 'deploy', 'app.cjs'), join(out, 'app.cjs'))
 const source = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 writeFileSync(

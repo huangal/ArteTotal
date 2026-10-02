@@ -15,6 +15,7 @@ is included.
 | `web.config` | IIS settings: sends every request to the app and allows 25 MB uploads. |
 | `server/index.js` | The server and API, bundled into one file. It also serves the site. |
 | `server/vendor/` | SQLite (sql.js) for Node versions without built-in SQLite. |
+| `server/data/` | Where the site saves its database and uploads. Ships empty (just a README). |
 | `dist/` | The built website, including the painting images. |
 
 ## First deploy (Windows / IIS)
@@ -27,8 +28,9 @@ is included.
    it isn't needed and an incomplete one can break the app.
 3. **Data folder.** The database, uploaded paintings and orders are saved in
    `server\data` inside the site, unless the environment variable `DATA_DIR` points
-   elsewhere. Either way, the site's IIS user (the application pool identity) needs
-   **write permission** on that folder. If your panel lets you set environment
+   elsewhere. The package includes that folder (empty apart from a README), so you can
+   set its permission before the first start: the site's IIS user (the application pool
+   identity, or IUSR) needs permission to **modify** it. If your panel lets you set environment
    variables, set `DATA_DIR` to a folder outside the website, e.g. `D:\...\private\artetotal-data`.
 4. Restart the site (or recycle its application pool), then open it. The first start
    creates the database and loads the original 20 paintings.
@@ -43,8 +45,9 @@ Set it back to `"false"` afterwards.
 
 1. Publish a new build: push a version tag from `main` (`git tag v1.0.2 && git push origin v1.0.2`).
    GitHub builds it, updates the `release` branch and attaches a ZIP to a new GitHub Release.
-2. Upload the new files over the old ones. **Don't delete `server\data`** if your data
-   is stored there: it holds the paintings added in the Studio and all orders.
+2. Upload the new files over the old ones. This replaces only the README in `server\data`.
+   **Don't delete `server\data`** if your data is stored there: it holds the paintings
+   added in the Studio and all orders.
 3. Restart the site. (iisnode also restarts by itself when `app.cjs`, `server\index.js`
    or `web.config` change.)
 
