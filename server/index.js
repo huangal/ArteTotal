@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -2816,7 +2816,17 @@ function openSqlJs(SQL, file) {
 		if (!persist || inTransaction) return;
 		const tmp = `${file}.${process.pid}.tmp`;
 		writeFileSync(tmp, db.export());
-		renameSync(tmp, file);
+		try {
+			renameSync(tmp, file);
+		} catch (err) {
+			if (![
+				"EPERM",
+				"EACCES",
+				"EBUSY"
+			].includes(err.code ?? "")) throw err;
+			copyFileSync(tmp, file);
+			unlinkSync(tmp);
+		}
 		version = fileVersion();
 		db.exec("PRAGMA foreign_keys = ON");
 	};
