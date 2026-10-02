@@ -9,7 +9,7 @@
  *
  * The package needs no `npm install`: the API is bundled into one file (server/index.js) with
  * its dependencies inlined, and SQLite comes from sql.js (WebAssembly) in server/vendor.
- * It also holds the built site (dist/), app.cjs (the startup file) and web.config for IIS.
+ * It also holds the built site (dist/), plus app.cjs (the startup file) and web.config for IIS from deploy/.
  */
 import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -62,16 +62,7 @@ cpSync(join(sqlJsDist, '..', 'LICENSE'), join(out, 'server', 'vendor', 'sql.js-L
 cpSync(join(root, 'deploy', 'README.md'), join(out, 'README.md'))
 cpSync(join(root, 'deploy', 'web.config'), join(out, 'web.config'))
 writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data\niisnode\n')
-writeFileSync(
-  join(out, 'app.cjs'),
-  `// Startup file. Hosts such as iisnode (Windows/IIS) and Passenger load it with require(),
-// which can't load ES modules on Node 18, so this imports the server instead.
-import('./server/index.js').catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
-`,
-)
+cpSync(join(root, 'deploy', 'app.cjs'), join(out, 'app.cjs'))
 const source = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 writeFileSync(
   join(out, 'package.json'),
