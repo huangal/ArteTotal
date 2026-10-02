@@ -1,55 +1,61 @@
 # ArteTotal deploy package
 
-This branch is the built site, ready to run on a host with Node.js 18.17 or newer,
-including cPanel's **Setup Node.js App** (Node 18.20.4). It is generated from `main`
-by `npm run release`, so don't edit files here: change `main` and release again.
+This is the built site, ready to run on Node.js 18.17 or newer. It's set up for
+**Windows hosting with IIS and iisnode** (Node 18.20.4), and also runs on any host
+that starts `app.cjs` or `npm start`. It is generated from `main`, so don't edit files
+here: change `main` and release again.
+
+**Nothing needs installing.** There is no `npm install` step: the server and its
+libraries are bundled into one file, and the database engine (SQLite, as WebAssembly)
+is included.
 
 | Path | What it is |
 | --- | --- |
-| `app.cjs` | Startup file. Loads the server (Passenger needs a CommonJS entry on Node 18). |
-| `server/` | The API, compiled to JavaScript. It also serves the site. |
+| `app.cjs` | Startup file. iisnode runs this. |
+| `web.config` | IIS settings: sends every request to the app and allows 25 MB uploads. |
+| `server/index.js` | The server and API, bundled into one file. It also serves the site. |
+| `server/vendor/` | SQLite (sql.js) for Node versions without built-in SQLite. |
 | `dist/` | The built website, including the painting images. |
-| `package.json` | Runtime dependencies only: `hono`, `@hono/node-server`, `better-sqlite3`. |
 
-## First deploy on cPanel
+## First deploy (Windows / IIS)
 
-1. **Create a folder for the data, outside the app**, for example `/home/USER/artetotal-data`
-   (File Manager, or `mkdir ~/artetotal-data` in Terminal). The database, uploaded paintings
-   and orders are stored there, so they survive redeploys.
-2. **Put these files in the application folder**, for example `/home/USER/artetotal`. Either:
-   - **Git (recommended):** cPanel, then *Git Version Control*, then *Create*. Clone
-     `git@github.com:huangal/ArteTotal.git`, branch `release`, into that folder. A private
-     repository needs a deploy key: in cPanel *SSH Access*, generate a key, then add its
-     public key on GitHub under *Settings*, *Deploy keys* (read-only).
-   - **Upload:** download the ZIP from the latest GitHub Release (or the `release` branch as a ZIP),
-     upload it in File Manager, and extract it into that folder.
-3. **Create the app:** cPanel, then *Setup Node.js App*, then *Create Application*:
-   - Node.js version: **18.20.4**
-   - Application mode: **Production**
-   - Application root: the folder from step 2, e.g. `artetotal`
-   - Application URL: your domain or a subdomain. Use the root of it (not a sub-path like `/shop`).
-   - Application startup file: **`app.cjs`**
-   - Environment variable: **`DATA_DIR`** = the folder from step 1, e.g. `/home/USER/artetotal-data`
-4. Click **Run NPM Install**. This installs the three dependencies. `better-sqlite3` downloads
-   a ready-made build for Node 18; if the host blocks that download, it compiles itself
-   instead, which needs the host's build tools (ask the host if it fails).
-5. Click **Restart**, then open the site. The first start creates the database and loads the
-   original 20 paintings.
+1. In your hosting panel, make sure the site uses **Node.js** (18.20.4) and that the
+   **startup file** is `app.cjs`. If the panel generates its own `web.config`, use
+   the one in this package instead, or copy its settings into the panel's.
+2. Upload **all** files from this package (the GitHub Release ZIP, extracted) into the
+   site's root folder, replacing what's there. Leave out any old `node_modules` folder:
+   it isn't needed and an incomplete one can break the app.
+3. **Data folder.** The database, uploaded paintings and orders are saved in
+   `server\data` inside the site, unless the environment variable `DATA_DIR` points
+   elsewhere. Either way, the site's IIS user (the application pool identity) needs
+   **write permission** on that folder. If your panel lets you set environment
+   variables, set `DATA_DIR` to a folder outside the website, e.g. `D:\...\private\artetotal-data`.
+4. Restart the site (or recycle its application pool), then open it. The first start
+   creates the database and loads the original 20 paintings.
+
+If it still shows an error, set `devErrorsEnabled="true"` in `web.config` to see
+Node's output in the browser, and check the `iisnode` folder in the site for logs.
+Set it back to `"false"` afterwards.
 
 ## Updating
 
-1. Publish a new build. Either push a version tag from `main` (`git tag v1.0.1 && git push origin v1.0.1`),
-   which makes GitHub build this branch and a ZIP under *Releases*, or run `npm run release -- --push` locally.
-2. On cPanel: *Git Version Control*, then *Manage*, then *Pull or Deploy*, then *Update from Remote*
-   (or upload the new ZIP and extract it over the old files).
-3. If `package.json` changed, click **Run NPM Install** again. Then click **Restart**.
+1. Publish a new build: push a version tag from `main` (`git tag v1.0.2 && git push origin v1.0.2`).
+   GitHub builds it, updates the `release` branch and attaches a ZIP to a new GitHub Release.
+2. Upload the new files over the old ones. **Don't delete `server\data`** if your data
+   is stored there: it holds the paintings added in the Studio and all orders.
+3. Restart the site. (iisnode also restarts by itself when `app.cjs`, `server\index.js`
+   or `web.config` change.)
 
-Your paintings, uploads and orders stay in `DATA_DIR` and aren't touched by an update.
+## Other hosts
+
+Any host with Node 18.17+ can run it with `npm start` (or `node app.cjs`). It listens on
+`PORT` (a number, or a pipe path as iisnode provides). Run **one** server process: the
+database is kept in memory by the process and written to disk on every change.
 
 ## Before going live
 
 - The API has no authentication: anyone who finds it can add, edit or delete paintings.
   Add a login for the Studio first.
 - Checkout records orders but takes no payment.
-- Node 18 no longer receives security updates. Move to a newer Node version when the host offers one;
-  the same code runs on Node 22.5 and newer without `better-sqlite3`.
+- Node 18 no longer receives security updates. Move to a newer Node version when the host
+  offers one; the same package runs on newer versions unchanged.

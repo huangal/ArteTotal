@@ -10,9 +10,5 @@
   "scripts": {
     "start": "node app.cjs"
   },
-  "dependencies": {
-    "@hono/node-server": "1.19.17",
-    "better-sqlite3": "11.10.0",
-    "hono": "4.13.9"
-  }
+  "dependencies": {}
 }
