@@ -74,6 +74,9 @@ function readCustomer(body: unknown) {
 
 const hasErrors = (errors: FieldErrors) => Object.keys(errors).length > 0
 
+/** An uploaded file. Checked as a Blob because Node 18 has no global File (form uploads are still Blobs). */
+const isUpload = (v: unknown): v is Blob => v instanceof Blob
+
 /** The HTTP API. `uploadsDir` is where uploaded images are written; the caller serves it at UPLOADS_PATH. */
 export function createApp(repo: Repository, uploadsDir: string) {
   const app = new Hono().basePath('/api')
@@ -98,15 +101,15 @@ export function createApp(repo: Repository, uploadsDir: string) {
 
   /** Checks an uploaded image, adding to `errors`. Returns its file extension when valid. */
   function checkImage(file: unknown, errors: FieldErrors) {
-    const ext = file instanceof File ? IMAGE_TYPES[file.type] : undefined
-    if (!(file instanceof File)) errors.image = 'Add an image of the painting.'
+    const ext = isUpload(file) ? IMAGE_TYPES[file.type] : undefined
+    if (!isUpload(file)) errors.image = 'Add an image of the painting.'
     else if (!ext) errors.image = 'Use a JPEG, PNG, WebP or AVIF image.'
     else if (file.size > MAX_IMAGE_BYTES) errors.image = 'That file is over 25 MB. Export a smaller version and try again.'
     return ext
   }
 
   /** Writes an uploaded image and returns its public URL. */
-  async function saveImage(file: File, filename: string) {
+  async function saveImage(file: Blob, filename: string) {
     await mkdir(uploadsDir, { recursive: true })
     await writeFile(join(uploadsDir, filename), Buffer.from(await file.arrayBuffer()))
     return UPLOADS_PATH + filename
@@ -122,7 +125,7 @@ export function createApp(repo: Repository, uploadsDir: string) {
     const body = await c.req.parseBody()
     const { fields, errors } = readFields(body, false)
     const ext = checkImage(body.image, errors)
-    if (hasErrors(errors) || !(body.image instanceof File)) return c.json({ error: 'Check the highlighted fields', fields: errors }, 422)
+    if (hasErrors(errors) || !isUpload(body.image)) return c.json({ error: 'Check the highlighted fields', fields: errors }, 422)
 
     const id = `${slug(fields.title!) || 'untitled'}-${Date.now().toString(36)}`
     const image = await saveImage(body.image, `${id}.${ext}`)
@@ -147,7 +150,7 @@ export function createApp(repo: Repository, uploadsDir: string) {
 
     const current = repo.get(c.req.param('id'))
     if (!current) return c.json({ error: 'Painting not found' }, 404)
-    if (!(file instanceof File)) return c.json(repo.update(current.id, fields))
+    if (!isUpload(file)) return c.json(repo.update(current.id, fields))
 
     // A new file name, so browsers don't keep showing the old image from cache.
     const image = await saveImage(file, `${current.id}-${Date.now().toString(36)}.${ext}`)

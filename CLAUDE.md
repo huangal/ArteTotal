@@ -11,11 +11,15 @@ ArteTotal is a single-page portfolio and shop for a painter, built with React + 
 - `npm run dev` — start the API (`dev:api`, port 3001, restarts on change) and the Vite dev server (`dev:web`, proxies `/api` and `/uploads` to the API)
 - `npm run build` — type-check app, Vite config and server via `tsc -b`, then production-build with Vite
 - `npm start` — run the API; once `dist/` is built it also serves the site
+- `npm run build:server` — compile the API to JavaScript in `build/` (`tsconfig.server.build.json`)
+- `npm run package` — build the Node 18 deploy package into `.release/`; `npm run release` also commits it to the `release` branch (`npm run release -- --push` pushes it). Needs a clean working tree. See `scripts/release.mjs` and `deploy/README.md`
 - `npm test` — API tests with Node's test runner (`server/*.test.ts`); run one with `node --test --test-name-pattern "<name>" server/app.test.ts`
 - `npm run lint` — lint with oxlint (config: `.oxlintrc.json`)
 - `npm run preview` — serve the production build locally (needs the API running)
 
-Requires Node 24+: the server runs its TypeScript directly (type stripping) and uses `node:sqlite`, so it has no build step.
+Development requires Node 24+: the server runs its TypeScript directly (type stripping) and uses `node:sqlite`.
+
+The production host runs Node 18.20.4 (cPanel "Setup Node.js App"), so server code must stay Node 18-compatible: no `import.meta.dirname`, no global `File` (check uploads as `Blob`), no Node 20+ APIs, and `@hono/node-server` stays on 1.x. `server/db.ts` uses `node:sqlite` when available and falls back to `better-sqlite3`, which is a dependency of the deploy package only (it can't be compiled on this machine). Vite 8 needs Node 20+, so the site is always built locally and the `release` branch holds the built output, not source.
 
 ## Architecture
 

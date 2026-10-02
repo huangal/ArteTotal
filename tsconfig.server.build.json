@@ -1,0 +1,13 @@
+{
+  // Compiles the API to JavaScript for hosts that can't run TypeScript directly (Node 18).
+  // Used by scripts/release.mjs; development still runs server/*.ts as-is.
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.build.tsbuildinfo",
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": "build",
+    "target": "es2022",
+    "rewriteRelativeImportExtensions": true
+  }
+}

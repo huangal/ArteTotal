@@ -9,7 +9,7 @@ Built with React, TypeScript, Vite, Tailwind CSS v4 and Motion. A small API
 
 ## Getting started
 
-Requires Node 24 or newer.
+Development requires Node 24 or newer (the deployed site runs on Node 18; see below).
 
 ```bash
 npm install
@@ -29,6 +29,19 @@ delete that folder to reset to the original collection.
 | `npm start` | Run the API, which also serves `dist/` once built |
 | `npm test` | API tests |
 | `npm run lint` | Lint with oxlint |
+
+## Deploying
+
+The host runs Node 18, which can't build the site or run the TypeScript server, so the
+`release` branch holds a ready-to-run build instead of source:
+
+```bash
+npm run release -- --push
+```
+
+This builds the site, compiles the API to JavaScript and pushes the result to `release`.
+Hosting setup (cPanel "Setup Node.js App") is in `deploy/README.md`, which is also the
+README of the `release` branch.
 
 ## Notes
 

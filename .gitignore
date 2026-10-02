@@ -28,3 +28,8 @@ server/data
 
 # Claude Code local config
 .claude/
+
+# Server build and deploy package (scripts/release.mjs)
+build
+.release
+.release-worktree

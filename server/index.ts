@@ -1,15 +1,18 @@
 import { existsSync, mkdirSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { createApp, UPLOADS_PATH } from './app.ts'
 import { openRepository } from './db.ts'
 
+// import.meta.dirname needs Node 20.11; this works on Node 18 too.
+const here = dirname(fileURLToPath(import.meta.url))
 const port = Number(process.env.PORT ?? 3001)
-const dataDir = resolve(process.env.DATA_DIR ?? join(import.meta.dirname, 'data'))
+const dataDir = resolve(process.env.DATA_DIR ?? join(here, 'data'))
 const uploadsDir = join(dataDir, 'uploads')
-const distDir = resolve(import.meta.dirname, '..', 'dist')
+const distDir = resolve(here, '..', 'dist')
 
 const repo = openRepository(join(dataDir, 'artetotal.db'))
 mkdirSync(uploadsDir, { recursive: true })

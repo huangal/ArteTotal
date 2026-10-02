@@ -30,11 +30,16 @@ const json = (method: string, body: unknown) => ({
 const customer = { name: 'Ana Ruiz', email: 'ana@example.com', address: '1 Calle', city: 'Lima', postcode: '15001', country: 'Peru' }
 const available = () => seedArtworks.filter((a) => a.status === 'available').map((a) => a.id)
 
-function paintingForm(overrides: Record<string, string | Blob> = {}) {
+/** A named upload. Built from a Blob because Node 18 has no global File. */
+type Upload = { blob: Blob; name: string }
+const upload = (parts: BlobPart[], name: string, type: string): Upload => ({ blob: new Blob(parts, { type }), name })
+
+function paintingForm(overrides: Record<string, string | Upload> = {}) {
   const form = new FormData()
   const fields = { title: 'Blue Harbour', year: '2025', medium: 'Oil on linen', dimensions: '40 x 50 cm', price: '$1,200', status: 'available', story: 'Boats at rest.' }
-  for (const [k, v] of Object.entries({ ...fields, image: new File([new Uint8Array([1, 2, 3])], 'harbour.png', { type: 'image/png' }), ...overrides })) {
-    form.append(k, v)
+  for (const [k, v] of Object.entries({ ...fields, image: upload([new Uint8Array([1, 2, 3])], 'harbour.png', 'image/png'), ...overrides })) {
+    if (typeof v === 'string') form.append(k, v)
+    else form.append(k, v.blob, v.name)
   }
   return form
 }
@@ -60,7 +65,7 @@ test('creates a painting with an uploaded image at the top of the collection', a
 test('rejects invalid fields and unsupported images with field errors', async () => {
   const res = await app.request('/api/artworks', {
     method: 'POST',
-    body: paintingForm({ title: ' ', year: '1492', image: new File(['x'], 'notes.txt', { type: 'text/plain' }) }),
+    body: paintingForm({ title: ' ', year: '1492', image: upload(['x'], 'notes.txt', 'text/plain') }),
   })
   assert.equal(res.status, 422)
   const { fields } = (await res.json()) as { fields: Record<string, string> }
@@ -86,7 +91,7 @@ test('edits details and replaces the image, deleting the old upload', async () =
   const form = new FormData()
   form.append('title', 'Blue Harbour at Dusk')
   form.append('price', '1500')
-  form.append('image', new File([new Uint8Array([4, 5])], 'dusk.webp', { type: 'image/webp' }))
+  form.append('image', new Blob([new Uint8Array([4, 5])], { type: 'image/webp' }), 'dusk.webp')
   const res = await app.request(`/api/artworks/${created.id}`, { method: 'PATCH', body: form })
   assert.equal(res.status, 200)
   const work = (await res.json()) as Artwork
