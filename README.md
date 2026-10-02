@@ -51,8 +51,8 @@ git push origin v1.0.0
 ```
 
 It can also be run by hand from the Actions tab to update `release` without a GitHub Release.
-Hosting setup (cPanel "Setup Node.js App") is in `deploy/README.md`, which is also the
-README of the `release` branch.
+Hosting setup (Windows/IIS with iisnode, Node 18) is in `deploy/README.md`, which is also the
+README of the `release` branch. The package needs no `npm install` on the host.
 
 ## Notes
 

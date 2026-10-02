@@ -1,38 +1,8 @@
 import { mkdirSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
 import type { Artwork, ArtworkFields, ArtworkStatus, Customer, Order } from '../src/types.ts'
 import { seedArtworks } from './seed.ts'
-
-/** The calls used here, which node:sqlite and better-sqlite3 share. */
-interface Statement {
-  run(...params: unknown[]): unknown
-  get(...params: unknown[]): unknown
-  all(...params: unknown[]): unknown[]
-}
-interface Database {
-  exec(sql: string): unknown
-  prepare(sql: string): Statement
-  close(): unknown
-}
-
-const require = createRequire(import.meta.url)
-
-/**
- * Node 22.5+ has SQLite built in (node:sqlite). Older hosts (Node 18) use better-sqlite3,
- * which is a dependency of the deploy package only, so development needs no native build.
- */
-function openDatabase(file: string): Database {
-  let builtin: { DatabaseSync: new (file: string) => Database } | undefined
-  try {
-    builtin = require('node:sqlite')
-  } catch {
-    // Not available on this Node version.
-  }
-  if (builtin) return new builtin.DatabaseSync(file)
-  const BetterSqlite3 = require('better-sqlite3') as new (file: string) => Database
-  return new BetterSqlite3(file)
-}
+import { openDatabase } from './sqlite.ts'
 
 interface ArtworkRow {
   id: string

@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 /**
- * Builds the deploy package for hosts on Node 18 (e.g. cPanel "Setup Node.js App"),
+ * Builds the deploy package for hosts on Node 18 (Windows/IIS with iisnode, or similar),
  * which can't run the build tools or TypeScript themselves.
  *
  *   node scripts/release.mjs                    builds it into .release/
  *   node scripts/release.mjs --commit           also commits it to the `release` branch
  *   node scripts/release.mjs --commit --push    and pushes that branch to origin
  *
- * The package holds the built site (dist/), the compiled API (server/*.js), a package.json
- * with only the runtime dependencies, and app.cjs, the startup file for Passenger.
+ * The package needs no `npm install`: the API is bundled into one file (server/index.js) with
+ * its dependencies inlined, and SQLite comes from sql.js (WebAssembly) in server/vendor.
+ * It also holds the built site (dist/), app.cjs (the startup file) and web.config for IIS.
  */
 import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { build } from 'vite'
 
 const root = resolve(import.meta.dirname, '..')
 const out = join(root, '.release')
@@ -21,31 +23,49 @@ const push = process.argv.includes('--push')
 
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, stdio: 'inherit', ...opts })
 const git = (args, cwd = root) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
-const version = (pkg) => JSON.parse(readFileSync(join(root, 'node_modules', pkg, 'package.json'), 'utf8')).version
 
 if (commit && git(['status', '--porcelain'])) {
   console.error('Commit or stash your changes first, so the release matches a commit on this branch.')
   process.exit(1)
 }
 
-// Build the site and compile the API.
-rmSync(join(root, 'build'), { recursive: true, force: true })
+// Build the site.
 run('npm', ['run', 'build'])
-run('npx', ['tsc', '-p', 'tsconfig.server.build.json'])
+
+// Bundle the API into one ES module for Node 18, with hono and @hono/node-server inlined,
+// so the host resolves no packages at runtime. Only Node built-ins stay external.
+rmSync(join(root, 'build', 'bundle'), { recursive: true, force: true })
+await build({
+  root,
+  configFile: false,
+  logLevel: 'warn',
+  ssr: { noExternal: true, target: 'node' },
+  build: {
+    ssr: 'server/index.ts',
+    outDir: 'build/bundle',
+    target: 'node18',
+    minify: false,
+    rollupOptions: { output: { format: 'esm', entryFileNames: 'index.js' } },
+  },
+})
 
 // Assemble the package.
 rmSync(out, { recursive: true, force: true })
-mkdirSync(join(out, 'server'), { recursive: true })
+mkdirSync(join(out, 'server', 'vendor'), { recursive: true })
 cpSync(join(root, 'dist'), join(out, 'dist'), { recursive: true })
-for (const file of readdirSync(join(root, 'build', 'server'))) {
-  if (file.endsWith('.js') && !file.endsWith('.test.js')) cpSync(join(root, 'build', 'server', file), join(out, 'server', file))
-}
+cpSync(join(root, 'build', 'bundle', 'index.js'), join(out, 'server', 'index.js'))
+// sql-wasm.js is CommonJS; .cjs keeps Node from reading it as ESM under "type": "module".
+const sqlJsDist = join(root, 'node_modules', 'sql.js', 'dist')
+cpSync(join(sqlJsDist, 'sql-wasm.js'), join(out, 'server', 'vendor', 'sql-wasm.cjs'))
+cpSync(join(sqlJsDist, 'sql-wasm.wasm'), join(out, 'server', 'vendor', 'sql-wasm.wasm'))
+cpSync(join(sqlJsDist, '..', 'LICENSE'), join(out, 'server', 'vendor', 'sql.js-LICENSE'))
 cpSync(join(root, 'deploy', 'README.md'), join(out, 'README.md'))
-writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data\n')
+cpSync(join(root, 'deploy', 'web.config'), join(out, 'web.config'))
+writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data\niisnode\n')
 writeFileSync(
   join(out, 'app.cjs'),
-  `// Startup file for Passenger (cPanel "Setup Node.js App"), which loads it with require().
-// On Node 18, require() can't load ES modules, so this imports the server instead.
+  `// Startup file. Hosts such as iisnode (Windows/IIS) and Passenger load it with require(),
+// which can't load ES modules on Node 18, so this imports the server instead.
 import('./server/index.js').catch((err) => {
   console.error(err)
   process.exit(1)
@@ -64,12 +84,8 @@ writeFileSync(
       description: 'ArteTotal deploy package. Built from the main branch by scripts/release.mjs; do not edit here.',
       engines: { node: '>=18.17' },
       scripts: { start: 'node app.cjs' },
-      dependencies: {
-        '@hono/node-server': version('@hono/node-server'),
-        // Native SQLite for Node versions without node:sqlite. 11.x is the last line supporting Node 18.
-        'better-sqlite3': '11.10.0',
-        hono: version('hono'),
-      },
+      // Everything is bundled or vendored: there is nothing to install.
+      dependencies: {},
     },
     null,
     2,

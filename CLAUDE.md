@@ -12,7 +12,7 @@ ArteTotal is a single-page portfolio and shop for a painter, built with React + 
 - `npm run build` — type-check app, Vite config and server via `tsc -b`, then production-build with Vite
 - `npm start` — run the API; once `dist/` is built it also serves the site
 - `npm run build:server` — compile the API to JavaScript in `build/` (`tsconfig.server.build.json`)
-- `npm run package` — build the Node 18 deploy package into `.release/`; `npm run release` also commits it to the `release` branch (`npm run release -- --push` pushes it). Needs a clean working tree. See `scripts/release.mjs` and `deploy/README.md`
+- `npm run package` — build the Node 18 deploy package into `.release/` (server bundled into one file with Vite's SSR build, sql.js vendored, `web.config` for IIS from `deploy/`); `npm run release` also commits it to the `release` branch (`npm run release -- --push` pushes it). Needs a clean working tree. See `scripts/release.mjs` and `deploy/README.md`
 - CI: `.github/workflows/release.yml` runs lint, tests and `scripts/release.mjs --commit --push` on GitHub when a `v*` tag is pushed (also creates a GitHub Release with the package ZIP), or by hand via workflow_dispatch
 - `npm test` — API tests with Node's test runner (`server/*.test.ts`); run one with `node --test --test-name-pattern "<name>" server/app.test.ts`
 - `npm run lint` — lint with oxlint (config: `.oxlintrc.json`)
@@ -20,7 +20,7 @@ ArteTotal is a single-page portfolio and shop for a painter, built with React + 
 
 Development requires Node 24+: the server runs its TypeScript directly (type stripping) and uses `node:sqlite`.
 
-The production host runs Node 18.20.4 (cPanel "Setup Node.js App"), so server code must stay Node 18-compatible: no `import.meta.dirname`, no global `File` (check uploads as `Blob`), no Node 20+ APIs, and `@hono/node-server` stays on 1.x. `server/db.ts` uses `node:sqlite` when available and falls back to `better-sqlite3`, which is a dependency of the deploy package only (it can't be compiled on this machine). Vite 8 needs Node 20+, so the site is always built locally and the `release` branch holds the built output, not source.
+The production host is Windows/IIS with iisnode on Node 18.20.4, so server code must stay Node 18-compatible: no `import.meta.dirname`, no global `File` (check uploads as `Blob`), no Node 20+ APIs, and `@hono/node-server` stays on 1.x. iisnode passes a named pipe path (not a number) in `PORT`. `server/sqlite.ts` uses `node:sqlite` when available and otherwise sql.js (WebAssembly, in-memory, written to disk after every change and reloaded when the file changes), so the host needs no native build or `npm install`. Vite 8 needs Node 20+, so the site is built before deploying and the `release` branch holds the built output, not source. `npm run build:server && node --test build/server/` runs the API tests as JavaScript, e.g. on Node 18 (CI does this).
 
 ## Architecture
 

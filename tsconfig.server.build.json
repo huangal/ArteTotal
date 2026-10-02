@@ -1,6 +1,7 @@
 {
-  // Compiles the API to JavaScript for hosts that can't run TypeScript directly (Node 18).
-  // Used by scripts/release.mjs; development still runs server/*.ts as-is.
+  // Compiles the API and its tests to JavaScript, so the tests can run on Node 18 (the host's
+  // version), which can't run TypeScript: `npm run build:server && node --test build/server/`.
+  // The deploy package itself is bundled by scripts/release.mjs.
   "extends": "./tsconfig.server.json",
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.build.tsbuildinfo",

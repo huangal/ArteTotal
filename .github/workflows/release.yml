@@ -38,6 +38,17 @@ jobs:
       - run: npm run lint
       - run: npm test
 
+      # The host runs Node 18, where the API uses sql.js instead of node:sqlite: test that too.
+      - run: npm run build:server
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Test the API on Node 18
+        run: node --test build/server/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Build the package and update the release branch
         run: |
           git config user.name "github-actions[bot]"
