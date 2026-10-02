@@ -1,4 +1,4 @@
-import { readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 
@@ -107,7 +107,14 @@ function openSqlJs(SQL: SqlJs, file: string): Database {
     // Write a temporary file, then swap it in, so a crash mid-write can't corrupt the database.
     const tmp = `${file}.${process.pid}.tmp`
     writeFileSync(tmp, db.export())
-    renameSync(tmp, file)
+    try {
+      renameSync(tmp, file)
+    } catch (err) {
+      // On Windows the swap can be blocked while another program (e.g. antivirus) has the file open.
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes((err as NodeJS.ErrnoException).code ?? '')) throw err
+      copyFileSync(tmp, file)
+      unlinkSync(tmp)
+    }
     version = fileVersion()
     db.exec('PRAGMA foreign_keys = ON') // export() reopens the database, which resets pragmas
   }

@@ -33,7 +33,9 @@ is included.
 4. Restart the site (or recycle its application pool), then open it. The first start
    creates the database and loads the original 20 paintings.
 
-If it still shows an error, set `devErrorsEnabled="true"` in `web.config` to see
+If the server can't start, the site shows a page titled **"ArteTotal couldn't start"**
+with the reason and what to do (most often: give the site's user write permission on the
+data folder). For any other error, set `devErrorsEnabled="true"` in `web.config` to see
 Node's output in the browser, and check the `iisnode` folder in the site for logs.
 Set it back to `"false"` afterwards.
 
