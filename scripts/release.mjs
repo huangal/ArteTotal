@@ -80,7 +80,8 @@ if (!commit) process.exit(0)
 
 // Commit the package as the whole content of the `release` branch, via a temporary worktree.
 const sourceCommit = git(['rev-parse', '--short', 'HEAD'])
-const sourceBranch = git(['rev-parse', '--abbrev-ref', 'HEAD'])
+// On GitHub Actions a tag build has a detached HEAD, so name the tag or branch it ran for.
+const sourceBranch = process.env.GITHUB_REF_NAME || git(['rev-parse', '--abbrev-ref', 'HEAD'])
 const tree = join(root, '.release-worktree')
 if (existsSync(tree)) git(['worktree', 'remove', '--force', tree])
 git(['worktree', 'add', tree, 'release'])

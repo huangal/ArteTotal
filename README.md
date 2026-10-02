@@ -40,6 +40,17 @@ npm run release -- --push
 ```
 
 This builds the site, compiles the API to JavaScript and pushes the result to `release`.
+
+Or let GitHub build it: push a version tag and the **Release** workflow
+(`.github/workflows/release.yml`) lints, tests, builds, updates `release` and creates
+a GitHub Release with the package as a ZIP:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+It can also be run by hand from the Actions tab to update `release` without a GitHub Release.
 Hosting setup (cPanel "Setup Node.js App") is in `deploy/README.md`, which is also the
 README of the `release` branch.
 

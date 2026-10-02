@@ -21,8 +21,8 @@ by `npm run release`, so don't edit files here: change `main` and release again.
      `git@github.com:huangal/ArteTotal.git`, branch `release`, into that folder. A private
      repository needs a deploy key: in cPanel *SSH Access*, generate a key, then add its
      public key on GitHub under *Settings*, *Deploy keys* (read-only).
-   - **Upload:** download the `release` branch as a ZIP from GitHub, upload it in
-     File Manager, and extract it into that folder.
+   - **Upload:** download the ZIP from the latest GitHub Release (or the `release` branch as a ZIP),
+     upload it in File Manager, and extract it into that folder.
 3. **Create the app:** cPanel, then *Setup Node.js App*, then *Create Application*:
    - Node.js version: **18.20.4**
    - Application mode: **Production**
@@ -38,7 +38,8 @@ by `npm run release`, so don't edit files here: change `main` and release again.
 
 ## Updating
 
-1. On your computer, on `main`: `npm run release -- --push` (builds and pushes this branch).
+1. Publish a new build. Either push a version tag from `main` (`git tag v1.0.1 && git push origin v1.0.1`),
+   which makes GitHub build this branch and a ZIP under *Releases*, or run `npm run release -- --push` locally.
 2. On cPanel: *Git Version Control*, then *Manage*, then *Pull or Deploy*, then *Update from Remote*
    (or upload the new ZIP and extract it over the old files).
 3. If `package.json` changed, click **Run NPM Install** again. Then click **Restart**.

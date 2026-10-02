@@ -1,0 +1,68 @@
+# Builds the Node 18 deploy package on GitHub and publishes it.
+#
+# Push a version tag (git tag v1.0.0 && git push origin v1.0.0) to:
+#   - lint, test and build the site and API
+#   - update the `release` branch, which the host deploys
+#   - create a GitHub Release with the package as a ZIP to download
+#
+# Or run it by hand (Actions tab, "Release", "Run workflow") to update the
+# `release` branch from the chosen branch without creating a GitHub Release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # push the release branch and create the GitHub Release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the release branch is needed too
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+      - name: Build the package and update the release branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git branch --force release origin/release
+          node scripts/release.mjs --commit --push
+
+      - name: Zip the package
+        run: |
+          name="artetotal-${GITHUB_REF_NAME//\//-}"
+          (cd .release && zip -qr "../$name.zip" .)
+          echo "ZIP=$name.zip" >> "$GITHUB_ENV"
+
+      - name: Keep the ZIP with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-package
+          path: ${{ env.ZIP }}
+
+      - name: Create the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$ZIP" \
+            --title "ArteTotal $GITHUB_REF_NAME" \
+            --notes "Deploy package for Node 18 hosts. Unzip it into the app folder, then Run NPM Install and Restart (see README.md inside). The same files are on the release branch." \
+            --generate-notes

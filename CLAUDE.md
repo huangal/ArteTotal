@@ -13,6 +13,7 @@ ArteTotal is a single-page portfolio and shop for a painter, built with React + 
 - `npm start` — run the API; once `dist/` is built it also serves the site
 - `npm run build:server` — compile the API to JavaScript in `build/` (`tsconfig.server.build.json`)
 - `npm run package` — build the Node 18 deploy package into `.release/`; `npm run release` also commits it to the `release` branch (`npm run release -- --push` pushes it). Needs a clean working tree. See `scripts/release.mjs` and `deploy/README.md`
+- CI: `.github/workflows/release.yml` runs lint, tests and `scripts/release.mjs --commit --push` on GitHub when a `v*` tag is pushed (also creates a GitHub Release with the package ZIP), or by hand via workflow_dispatch
 - `npm test` — API tests with Node's test runner (`server/*.test.ts`); run one with `node --test --test-name-pattern "<name>" server/app.test.ts`
 - `npm run lint` — lint with oxlint (config: `.oxlintrc.json`)
 - `npm run preview` — serve the production build locally (needs the API running)
