@@ -6,17 +6,18 @@ that starts `app.cjs` or `npm start`. It is generated from `main`, so don't edit
 here: change `main` and release again.
 
 **Nothing needs installing.** There is no `npm install` step: the server and its
-libraries are bundled into one file, and the database engine (SQLite, as WebAssembly)
-is included.
+libraries, including the SQL Server driver, are bundled into one file.
 
 | Path | What it is |
 | --- | --- |
 | `app.cjs` | Startup file. iisnode runs this. |
-| `web.config` | IIS settings: sends every request to the app and allows 25 MB uploads. |
+| `web.config` | IIS settings: sends every request to the app, allows 25 MB uploads, and blocks the settings file from being downloaded. |
+| `artetotal.settings.example.json` | Template for `artetotal.settings.json`, which you create once on the host. |
 | `server/index.js` | The server and API, bundled into one file. It also serves the site. |
-| `server/vendor/` | SQLite (sql.js) for Node versions without built-in SQLite. |
-| `server/data/` | Where the site saves its database and uploads. Ships empty (just a README). |
+| `server/data/` | Where images uploaded in the Studio are saved. Ships empty (just a README). |
 | `dist/` | The built website, including the painting images. |
+
+The paintings and orders are stored in **Microsoft SQL Server** (2016 or newer).
 
 ## First deploy (Windows / IIS)
 
@@ -24,43 +25,50 @@ is included.
    **startup file** is `app.cjs`. If the panel generates its own `web.config`, use
    the one in this package instead, or copy its settings into the panel's.
 2. Upload **all** files from this package (the GitHub Release ZIP, extracted) into the
-   site's root folder, replacing what's there. Leave out any old `node_modules` folder:
-   it isn't needed and an incomplete one can break the app.
-3. **Data folder.** The database, uploaded paintings and orders are saved in
-   `server\data` inside the site, unless the environment variable `DATA_DIR` points
-   elsewhere. The package includes that folder (empty apart from a README), so you can
-   set its permission before the first start: the site's IIS user (the application pool
-   identity, or IUSR) needs permission to **modify** it. If your panel lets you set environment
-   variables, set `DATA_DIR` to a folder outside the website, e.g. `D:\...\private\artetotal-data`.
-4. Restart the site (or recycle its application pool), then open it. The first start
-   creates the database and loads the original 20 paintings.
+   site's root folder, replacing what's there. Leave out any old `node_modules` folder.
+3. **Settings.** Next to `web.config`, create `artetotal.settings.json` from
+   `artetotal.settings.example.json` and fill in:
+   - `database`: the SQL Server address, database name, login and password from your
+     host's panel. Keep `encrypt` and `trustServerCertificate` as they are unless the
+     host's instructions say otherwise.
+   - `studioPassword`: the password for the Artist Studio. Choose a long one: anyone who
+     knows it can change the collection and see customers' details.
+
+   Releases never include this file, so updates won't overwrite it.
+4. **Database permission.** On first start the site creates its tables, so the SQL login
+   needs permission to create tables in its database (the `db_ddladmin` role). Most hosts
+   give a database's own login this permission.
+5. **Image folder.** Give the site's IIS user (the application pool identity, or IUSR)
+   permission to **modify** `server\data`, where Studio uploads are saved.
+6. Restart the site (or recycle its application pool), then open it. The first start
+   creates the tables and loads the original 20 paintings.
 
 If the server can't start, the site shows a page titled **"ArteTotal couldn't start"**
-with the reason and what to do (most often: give the site's user write permission on the
-data folder). For any other error, set `devErrorsEnabled="true"` in `web.config` to see
-Node's output in the browser, and check the `iisnode` folder in the site for logs.
-Set it back to `"false"` afterwards.
+with the reason and what to do (for example: the settings are incomplete, SQL Server
+refused the login, or it couldn't be reached). For any other error, set
+`devErrorsEnabled="true"` in `web.config` to see Node's output in the browser, and check
+the `iisnode` folder in the site for logs. Set it back to `"false"` afterwards.
 
 ## Updating
 
-1. Publish a new build: push a version tag from `main` (`git tag v1.0.2 && git push origin v1.0.2`).
-   GitHub builds it, updates the `release` branch and attaches a ZIP to a new GitHub Release.
-2. Upload the new files over the old ones. This replaces only the README in `server\data`.
-   **Don't delete `server\data`** if your data is stored there: it holds the paintings
-   added in the Studio and all orders.
-3. Restart the site. (iisnode also restarts by itself when `app.cjs`, `server\index.js`
-   or `web.config` change.)
+1. Publish a new build: push a version tag from `main` (`git tag v1.2.0 && git push origin v1.2.0`).
+   GitHub tests it against a temporary SQL Server, builds it, updates the `release`
+   branch and attaches a ZIP to a new GitHub Release.
+2. Upload the new files over the old ones. This doesn't touch `artetotal.settings.json`
+   and replaces only the README in `server\data`. **Don't delete `server\data`**: it holds
+   the images added in the Studio.
+3. Restart the site. (iisnode also restarts by itself when `app.cjs`, `server\index.js`,
+   `web.config` or the settings file change.)
 
 ## Other hosts
 
 Any host with Node 18.17+ can run it with `npm start` (or `node app.cjs`). It listens on
-`PORT` (a number, or a pipe path as iisnode provides). Run **one** server process: the
-database is kept in memory by the process and written to disk on every change.
+`PORT` (a number, or a pipe path as iisnode provides). Settings can also come from
+environment variables instead of the file: `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`,
+`DB_PASSWORD`, `DB_ENCRYPT`, `DB_TRUST_SERVER_CERTIFICATE`, `STUDIO_PASSWORD`, `DATA_DIR`.
 
 ## Before going live
 
-- The API has no authentication: anyone who finds it can add, edit or delete paintings.
-  Add a login for the Studio first.
 - Checkout records orders but takes no payment.
 - Node 18 no longer receives security updates. Move to a newer Node version when the host
   offers one; the same package runs on newer versions unchanged.

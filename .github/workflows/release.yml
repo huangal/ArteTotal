@@ -24,6 +24,24 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+
+    # A throwaway SQL Server for the tests (see test.yml); the tests never touch the site's data.
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ArteTotal-Test-2026!
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'ArteTotal-Test-2026!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s --health-timeout 5s --health-retries 12 --health-start-period 20s
+
+    env:
+      TEST_DB_SERVER: localhost
+      TEST_DB_USER: sa
+      TEST_DB_PASSWORD: ArteTotal-Test-2026!
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +56,7 @@ jobs:
       - run: npm run lint
       - run: npm test
 
-      # The host runs Node 18, where the API uses sql.js instead of node:sqlite: test that too.
+      # The host runs Node 18: run the same tests there, compiled to JavaScript.
       - run: npm run build:server
       - uses: actions/setup-node@v4
         with:

@@ -58,7 +58,7 @@ function ModalBody({
 }) {
   // `art` comes in as a prop, not looked up by index, so the body keeps showing
   // the removed painting while the modal fades out after a removal.
-  const { studioOpen, openStudio, removeArtwork, notify } = useStore()
+  const { studioOpen, openStudio, removeArtwork, notify, studioSession } = useStore()
   const [zoomed, setZoomed] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -156,7 +156,8 @@ function ModalBody({
           <p className="text-ink-3 tabular-nums">
             {index + 1} of {total}
           </p>
-          {!confirmingRemove && (
+          {/* Editing controls are for the signed-in artist only. */}
+          {!confirmingRemove && studioSession === 'signed-in' && (
             <div className="flex items-center gap-5">
               <button
                 type="button"

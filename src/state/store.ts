@@ -3,6 +3,8 @@ import type { Artwork, ArtworkFields, Customer, Order } from '../types'
 
 export type Theme = 'light' | 'dark'
 export type CollectionStatus = 'loading' | 'ready' | 'error'
+/** The Studio login: 'locked' means the site has no Studio password set, so nobody can sign in. */
+export type StudioSession = 'checking' | 'signed-out' | 'signed-in' | 'locked'
 
 export interface Store {
   artworks: Artwork[]
@@ -37,6 +39,13 @@ export interface Store {
   /** Opens the Studio to add a painting, or to edit the one with `editId`. */
   openStudio: (editId?: string) => void
   closeStudio: () => void
+
+  studioSession: StudioSession
+  /** Signs in to the Studio. Throws ApiError (401 wrong password, 429 too many attempts). */
+  signIn: (password: string) => Promise<void>
+  signOut: () => Promise<void>
+  /** Call when a Studio request comes back 401, so the Studio asks to sign in again. */
+  sessionExpired: () => void
 
   toast: string | null
   notify: (message: string) => void

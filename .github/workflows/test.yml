@@ -1,0 +1,51 @@
+# Lints, builds and runs the API tests against a throwaway SQL Server, on Node 24 (development)
+# and Node 18 (the production host), for every push and pull request.
+name: Tests
+
+on:
+  push:
+    branches-ignore: [release]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # A temporary SQL Server 2022, created for this run and deleted after it. The tests create
+    # (and drop) their own database on it; it never sees the site's real data.
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ArteTotal-Test-2026!
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'ArteTotal-Test-2026!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s --health-timeout 5s --health-retries 12 --health-start-period 20s
+
+    env:
+      TEST_DB_SERVER: localhost
+      TEST_DB_USER: sa
+      TEST_DB_PASSWORD: ArteTotal-Test-2026!
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+
+      # The host runs Node 18: run the same tests there, compiled to JavaScript.
+      - run: npm run build:server
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Test the API on Node 18
+        run: node --test build/server/
