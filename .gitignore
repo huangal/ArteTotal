@@ -33,3 +33,6 @@ server/data
 build
 .release
 .release-worktree
+
+# Local settings with the database password (see deploy/artetotal.settings.example.json)
+artetotal.settings.json

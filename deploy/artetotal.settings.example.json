@@ -1,0 +1,12 @@
+{
+  "database": {
+    "server": "your-sql-server-address",
+    "port": 1433,
+    "database": "your-database-name",
+    "user": "your-sql-login",
+    "password": "",
+    "encrypt": true,
+    "trustServerCertificate": true
+  },
+  "studioPassword": ""
+}

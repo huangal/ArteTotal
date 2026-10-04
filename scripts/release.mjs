@@ -8,7 +8,7 @@
  *   node scripts/release.mjs --commit --push    and pushes that branch to origin
  *
  * The package needs no `npm install`: the API is bundled into one file (server/index.js) with
- * its dependencies inlined, and SQLite comes from sql.js (WebAssembly) in server/vendor.
+ * its dependencies inlined (including the SQL Server driver).
  * It also holds the built site (dist/), plus app.cjs (the startup file) and web.config for IIS from deploy/.
  */
 import { execFileSync } from 'node:child_process'
@@ -45,27 +45,28 @@ await build({
     outDir: 'build/bundle',
     target: 'node18',
     minify: false,
-    rollupOptions: { output: { format: 'esm', entryFileNames: 'index.js' } },
+    copyPublicDir: false, // the site's files go in dist/, not next to the server
+    // One file: code the driver loads on demand (Azure sign-in helpers) is inlined, not split out.
+    rollupOptions: { output: { format: 'esm', entryFileNames: 'index.js', codeSplitting: false } },
   },
 })
 
 // Assemble the package.
 rmSync(out, { recursive: true, force: true })
-mkdirSync(join(out, 'server', 'vendor'), { recursive: true })
+mkdirSync(join(out, 'server'), { recursive: true })
 mkdirSync(join(out, 'server', 'data'), { recursive: true })
 cpSync(join(root, 'dist'), join(out, 'dist'), { recursive: true })
+const bundled = readdirSync(join(root, 'build', 'bundle'), { recursive: true })
+if (bundled.length !== 1) throw new Error(`The server bundle should be one file, but has: ${bundled.join(', ')}`)
 cpSync(join(root, 'build', 'bundle', 'index.js'), join(out, 'server', 'index.js'))
-// sql-wasm.js is CommonJS; .cjs keeps Node from reading it as ESM under "type": "module".
-const sqlJsDist = join(root, 'node_modules', 'sql.js', 'dist')
-cpSync(join(sqlJsDist, 'sql-wasm.js'), join(out, 'server', 'vendor', 'sql-wasm.cjs'))
-cpSync(join(sqlJsDist, 'sql-wasm.wasm'), join(out, 'server', 'vendor', 'sql-wasm.wasm'))
-cpSync(join(sqlJsDist, '..', 'LICENSE'), join(out, 'server', 'vendor', 'sql.js-LICENSE'))
 cpSync(join(root, 'deploy', 'README.md'), join(out, 'README.md'))
 cpSync(join(root, 'deploy', 'web.config'), join(out, 'web.config'))
 // An empty data folder (held by its README), so its write permission can be set before the first
 // start. The database and uploads the site creates there are never part of a release.
 cpSync(join(root, 'deploy', 'data-README.md'), join(out, 'server', 'data', 'README.md'))
-writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data/*\n!server/data/README.md\niisnode\n')
+// The real settings file (with the database password) is created on the host and never released.
+cpSync(join(root, 'deploy', 'artetotal.settings.example.json'), join(out, 'artetotal.settings.example.json'))
+writeFileSync(join(out, '.gitignore'), 'node_modules\nserver/data/*\n!server/data/README.md\niisnode\nartetotal.settings.json\n')
 cpSync(join(root, 'deploy', 'app.cjs'), join(out, 'app.cjs'))
 const source = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 writeFileSync(
@@ -79,7 +80,7 @@ writeFileSync(
       description: 'ArteTotal deploy package. Built from the main branch by scripts/release.mjs; do not edit here.',
       engines: { node: '>=18.17' },
       scripts: { start: 'node app.cjs' },
-      // Everything is bundled or vendored: there is nothing to install.
+      // Everything is bundled: there is nothing to install.
       dependencies: {},
     },
     null,

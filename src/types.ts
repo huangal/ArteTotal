@@ -39,3 +39,32 @@ export interface Order {
   items: Artwork[]
   total: number
 }
+
+export type OrderStatus = 'new' | 'paid' | 'shipped' | 'cancelled'
+
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  new: 'New',
+  paid: 'Paid',
+  shipped: 'Shipped',
+  cancelled: 'Cancelled',
+}
+
+/** The statuses an order can move to from each status. Cancelling puts its paintings back on sale. */
+export const ORDER_STATUS_NEXT: Record<OrderStatus, OrderStatus[]> = {
+  new: ['paid', 'cancelled'],
+  paid: ['shipped', 'cancelled'],
+  shipped: [],
+  cancelled: [],
+}
+
+/** An order as the Studio sees it, with the customer's details. */
+export interface OrderSummary {
+  number: string
+  status: OrderStatus
+  total: number
+  /** ISO date-times. */
+  createdAt: string
+  updatedAt: string
+  customer: Customer
+  items: { artworkId: string; title: string; price: number }[]
+}

@@ -1,4 +1,4 @@
-import type { Artwork, ArtworkFields, Customer, Order } from '../types'
+import type { Artwork, ArtworkFields, Customer, Order, OrderStatus, OrderSummary } from '../types'
 
 /** A failed API call. `fields` holds per-field messages on validation errors (422). */
 export class ApiError extends Error {
@@ -56,4 +56,16 @@ export const api = {
   deleteArtwork: (id: string) => request<void>(`/artworks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   placeOrder: (artworkIds: string[], customer: Customer) => request<Order>('/orders', json('POST', { artworkIds, customer })),
+
+  /** Whether this browser is signed in to the Studio, and whether a Studio password is set at all. */
+  session: () => request<{ signedIn: boolean; configured: boolean }>('/session'),
+
+  signIn: (password: string) => request<void>('/session', json('POST', { password })),
+
+  signOut: () => request<void>('/session', { method: 'DELETE' }),
+
+  listOrders: () => request<OrderSummary[]>('/orders'),
+
+  setOrderStatus: (number: string, status: OrderStatus) =>
+    request<OrderSummary>(`/orders/${encodeURIComponent(number)}`, json('PATCH', { status })),
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../lib/api'
 import type { Artwork, ArtworkFields, Customer } from '../types'
-import { StoreContext, type CollectionStatus, type Store, type Theme } from './store'
+import { StoreContext, type CollectionStatus, type Store, type StudioSession, type Theme } from './store'
 
 interface CollectionState {
   artworks: Artwork[]
@@ -69,6 +69,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cartOpen, setCartOpen] = useState(false)
   const [studioOpen, setStudioOpen] = useState(false)
   const [studioEditId, setStudioEditId] = useState<string | null>(null)
+  const [studioSession, setStudioSession] = useState<StudioSession>('checking')
   const [toast, setToast] = useState<string | null>(null)
   const [theme, setTheme] = useState<Theme>(currentTheme)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -135,33 +136,75 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     fetchCollection()
   }, [fetchCollection])
 
-  const createArtwork = useCallback(async (fields: ArtworkFields, image: File) => {
-    const artwork = await api.createArtwork(fields, image)
-    dispatch({ type: 'add-artwork', artwork })
-    return artwork
+  // Whether this browser is signed in to the Studio (it decides who sees editing controls).
+  useEffect(() => {
+    api.session().then(
+      (s) => setStudioSession(!s.configured ? 'locked' : s.signedIn ? 'signed-in' : 'signed-out'),
+      () => setStudioSession('signed-out'),
+    )
   }, [])
 
-  const updateArtwork = useCallback(async (id: string, fields: Partial<ArtworkFields>, image?: File) => {
-    const artwork = await api.updateArtwork(id, fields, image)
-    dispatch({ type: 'update-artwork', artwork })
-    return artwork
+  const sessionExpired = useCallback(() => setStudioSession((s) => (s === 'locked' ? s : 'signed-out')), [])
+
+  /** Runs a Studio request; a 401 means the session ended, so ask to sign in again. */
+  const studio = useCallback(
+    async <T,>(run: () => Promise<T>) => {
+      try {
+        return await run()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) sessionExpired()
+        throw err
+      }
+    },
+    [sessionExpired],
+  )
+
+  const signIn = useCallback(async (password: string) => {
+    await api.signIn(password)
+    setStudioSession('signed-in')
   }, [])
+
+  const signOut = useCallback(async () => {
+    await api.signOut().catch(() => {})
+    setStudioSession('signed-out')
+  }, [])
+
+  const createArtwork = useCallback(
+    async (fields: ArtworkFields, image: File) => {
+      const artwork = await studio(() => api.createArtwork(fields, image))
+      dispatch({ type: 'add-artwork', artwork })
+      return artwork
+    },
+    [studio],
+  )
+
+  const updateArtwork = useCallback(
+    async (id: string, fields: Partial<ArtworkFields>, image?: File) => {
+      const artwork = await studio(() => api.updateArtwork(id, fields, image))
+      dispatch({ type: 'update-artwork', artwork })
+      return artwork
+    },
+    [studio],
+  )
 
   const openStudio = useCallback((editId?: string) => {
     setStudioEditId(editId ?? null)
     setStudioOpen(true)
   }, [])
 
-  const removeArtwork = useCallback(async (id: string) => {
-    try {
-      await api.deleteArtwork(id)
-    } catch (err) {
-      // Already gone on the server: still take it off this page.
-      if (!(err instanceof ApiError && err.status === 404)) throw err
-    }
-    dispatch({ type: 'remove-artwork', id })
-    setActiveId((current) => (current === id ? null : current))
-  }, [])
+  const removeArtwork = useCallback(
+    async (id: string) => {
+      try {
+        await studio(() => api.deleteArtwork(id))
+      } catch (err) {
+        // Already gone on the server: still take it off this page.
+        if (!(err instanceof ApiError && err.status === 404)) throw err
+      }
+      dispatch({ type: 'remove-artwork', id })
+      setActiveId((current) => (current === id ? null : current))
+    },
+    [studio],
+  )
 
   const completePurchase = useCallback(
     async (customer: Customer) => {
@@ -202,12 +245,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       studioEditId,
       openStudio,
       closeStudio: () => setStudioOpen(false),
+      studioSession,
+      signIn,
+      signOut,
+      sessionExpired,
       toast,
       notify,
       theme,
       toggleTheme,
     }
-  }, [state, collection, reloadCollection, createArtwork, updateArtwork, removeArtwork, completePurchase, activeId, cartOpen, studioOpen, studioEditId, openStudio, toast, notify, theme, toggleTheme])
+  }, [state, collection, reloadCollection, createArtwork, updateArtwork, removeArtwork, completePurchase, activeId, cartOpen, studioOpen, studioEditId, openStudio, studioSession, signIn, signOut, sessionExpired, toast, notify, theme, toggleTheme])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
