@@ -15,7 +15,21 @@ import('./server/index.js').catch((err) => {
 function startErrorPage(err) {
   const code = err && err.code
   const permission = code === 'EPERM' || code === 'EACCES'
-  const hint = permission
+  const database =
+    code === 'ESETTINGS'
+      ? err.message
+      : code === 'ELOGIN'
+        ? "SQL Server refused the login. Check the user and password in artetotal.settings.json (next to web.config), and that this login may use the database."
+        : code === 'ESOCKET' || code === 'ETIMEOUT'
+          ? "Couldn't reach SQL Server. Check the server address and port in artetotal.settings.json, and that the host allows this site to connect."
+          : /certificate|ssl|tls/i.test(String(err && err.message))
+            ? 'The secure connection to SQL Server failed. Try "encrypt": false in artetotal.settings.json if the host says SQL Server encryption is not supported.'
+            : /CREATE TABLE|permission was denied/i.test(String(err && err.message))
+              ? "The database login can't create the tables. Ask the host to grant it CREATE TABLE (the db_ddladmin role) on the database, then restart the site."
+              : null
+  const hint = database
+    ? `${database} Then restart the site.`
+    : permission
     ? `The server isn't allowed to write to ${err.path || 'its data folder'}. Give the site's user ` +
       '(the IIS application pool identity, IUSR, or the user your host names) permission to modify ' +
       'that folder, or set the DATA_DIR environment variable to a folder it can write. Then restart the site.'
