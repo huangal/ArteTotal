@@ -1,6 +1,6 @@
-import { createHash, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import type { Context, MiddlewareHandler } from 'hono'
-import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie'
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
 const COOKIE = 'artetotal_studio'
 const SESSION_DAYS = 7
@@ -22,42 +22,50 @@ const isHttps = (c: Context) =>
  */
 export function studioAuth(password: string) {
   // The signing key comes from the password, so a new password invalidates old cookies.
-  const secret = sha256(`artetotal-studio-session:${password}`).toString('base64')
+  // Signed with node:crypto, not Web Crypto: Node 18 (the host) has no global `crypto` in modules.
+  const key = sha256(`artetotal-studio-session:${password}`)
+  const sign = (value: string) => createHmac('sha256', key).update(value).digest('base64url')
   const failures = new Map<string, { count: number; lockedUntil: number }>()
 
+  /** The cookie holds "<expiry ms>.<signature>". */
   const isSignedIn = async (c: Context) => {
     if (!password) return false
-    const expires = Number(await getSignedCookie(c, secret, COOKIE))
-    return Number.isFinite(expires) && expires > Date.now()
+    const [expires, signature = ''] = (getCookie(c, COOKIE) ?? '').split('.')
+    const expected = Buffer.from(sign(expires))
+    const given = Buffer.from(signature)
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) return false
+    return Number(expires) > Date.now()
   }
 
   /** Checks a password attempt. Returns 'ok', 'wrong', or the seconds to wait before trying again. */
   const attempt = (c: Context, given: string): 'ok' | 'wrong' | number => {
-    const key = clientKey(c)
-    const record = failures.get(key) ?? { count: 0, lockedUntil: 0 }
+    const client = clientKey(c)
+    const record = failures.get(client) ?? { count: 0, lockedUntil: 0 }
     if (record.lockedUntil > Date.now()) return Math.ceil((record.lockedUntil - Date.now()) / 1000)
     // Compare hashes in constant time, so the response time doesn't hint at the password.
     if (password && timingSafeEqual(sha256(given), sha256(password))) {
-      failures.delete(key)
+      failures.delete(client)
       return 'ok'
     }
     record.count += 1
     if (record.count >= MAX_FAILURES) {
       record.lockedUntil = Date.now() + Math.min(LOCK_MS * 2 ** (record.count - MAX_FAILURES), 3_600_000)
     }
-    failures.set(key, record)
+    failures.set(client, record)
     if (failures.size > 10_000) failures.clear() // don't grow without bound
     return 'wrong'
   }
 
-  const signIn = (c: Context) =>
-    setSignedCookie(c, COOKIE, String(Date.now() + SESSION_DAYS * 86_400_000), secret, {
+  const signIn = (c: Context) => {
+    const expires = String(Date.now() + SESSION_DAYS * 86_400_000)
+    setCookie(c, COOKIE, `${expires}.${sign(expires)}`, {
       httpOnly: true,
       secure: isHttps(c),
       sameSite: 'Strict',
       path: '/',
       maxAge: SESSION_DAYS * 86_400,
     })
+  }
 
   const signOut = (c: Context) => deleteCookie(c, COOKIE, { path: '/' })
 
